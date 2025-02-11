@@ -1,0 +1,78 @@
+services:
+  dev_postgresql:
+    container_name: dev_postgresql
+    image: postgres:17.2
+    restart: on-failure
+    deploy:
+      resources:
+        reservations:
+          cpus: 2
+          memory: "2G"
+        limits:
+          cpus: 4
+          memory: "4G"
+    ports:
+      - protocol: tcp
+        published: 4001
+        target: 5432
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGDATA: /var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    volumes:
+      # - type: bind
+      #   source: ./init.sql
+      #   target: /docker-entrypoint-initdb.d/init.sql
+      #   read_only: true
+      - type: volume
+        source: postgresql-data
+        target: /var/lib/postgresql/data
+        read_only: false
+    networks:
+      - dev_network
+
+  dev_pgadmin:
+    container_name: dev_pgadmin
+    image: elestio/pgadmin:latest
+    restart: on-failure
+    deploy:
+      resources:
+        reservations:
+          cpus: 0.5
+          memory: "500M"
+        limits:
+          cpus: 1
+          memory: "2G"
+    ports:
+      - protocol: tcp
+        published: 4002
+        target: 8080
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${POSTGRES_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${POSTGRES_EMAIL_PASSWORD}
+      PGADMIN_LISTEN_PORT: 8080
+    depends_on:
+      dev_postgresql:
+        condition: service_healthy
+    networks:
+      - dev_network
+
+networks:
+  dev_network:
+    name: dev_network
+    driver: bridge
+
+volumes:
+  postgresql-data:
+    name: postgresql-data
